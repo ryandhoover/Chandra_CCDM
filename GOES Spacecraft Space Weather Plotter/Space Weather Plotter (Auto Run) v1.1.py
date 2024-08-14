@@ -10,6 +10,7 @@ import requests
 import plotly.graph_objects as go
 from plotly import subplots
 import pandas as pd
+from components.misc import create_dir
 
 
 class DataObject:
@@ -60,8 +61,11 @@ def write_html_file(user_vars, figure):
         "GOES Space Weather Plot (14-Day Lookback)"
     )
 
-    output_dir = "N:/engineering/ccdm/Tools/GOES Spacecraft Space Weather Script/Output/"
-    figure.write_html(output_dir + f"{figure_title}" + ".html")
+    output_dir = ("//noodle/GRETA/rhoover/python/Code/Chandra_CCDM/"
+                  "GOES Spacecraft Space Weather Plotter/Output")
+
+    create_dir(output_dir)
+    figure.write_html(f"{output_dir}/{figure_title}.html")
     print(f""" - Done! Data written to "{output_dir}{figure_title}.html" in output directory.""")
 
 
