@@ -31,6 +31,7 @@ from components.limit_violation_detection import (
 from components.eia_sequencer_selftest_detection import sequencer_selftest_detection
 from components.ssr_rollover_detection import ssr_rollover_detection
 from components.scs107_detection import scs107_detection
+from components.misc import create_dir
 warnings.filterwarnings('ignore')
 
 
@@ -68,8 +69,7 @@ class UserVariables:
 
     def get_dir_path(self):
         "User input for set directory"
-        # self.set_dir = "/home/rhoover/python/Weekly/CCDM/2024/TEST/"
-        self.set_dir = "/home/rhoover/python/Weekly/CCDM/2024/"
+        self.set_dir = "/home/rhoover/python/Code/Chandra_CCDM/Weekly"
         print(f"Set directory is: {self.set_dir}")
 
     def get_ssr_prime(self):
@@ -1100,12 +1100,14 @@ def build_report(user_vars,data):
     )
 
     file_name = (
-        user_vars.set_dir +
         f"CCDM_Weekly_{user_vars.start_year}{user_vars.doy_start}_"
         f"{user_vars.end_year}{user_vars.doy_end}.html"
     )
 
-    with open(file_name, "w",encoding="utf-8") as file:
+    create_dir(f"{user_vars.set_dir}/{user_vars.start_year}")
+
+    with open(f"{user_vars.set_dir}/{user_vars.start_year}/{file_name}", 
+              "w",encoding="utf-8") as file:
         file.write(html_output)
         file.close()
 

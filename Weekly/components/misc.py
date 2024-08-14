@@ -1,5 +1,20 @@
 "MISC Methods"
 
+import os
+
+
+def create_dir(input_dir):
+    """
+    Description: Create the given directory path
+    Input: <str>
+    Output: None
+    """
+    try:
+        os.mkdir(input_dir)
+    except FileExistsError:
+        pass
+
+
 def format_wk(wk_no_format):
     "Format the timetuple into a 2 digit string"
     wk_formatted = ""
