@@ -1,10 +1,6 @@
 """
-v1.5 Change Notes:
- - Corrects spurious command lock bugs
-     1) Starting comms early leads to lots of data points found
-     2) Expected comms missed if they cross start/end days.
-     3) Shorten queue time for spurious command lock detection by 3x.
- - Added MSID filter for Limit violation detection. 
+v1.6 Change Notes:
+ - Improves SSR rollover detection
 """
 
 from datetime import timedelta
@@ -1106,7 +1102,7 @@ def build_report(user_vars,data):
 
     create_dir(f"{user_vars.set_dir}/{user_vars.start_year}")
 
-    with open(f"{user_vars.set_dir}/{user_vars.start_year}/{file_name}", 
+    with open(f"{user_vars.set_dir}/{user_vars.start_year}/{file_name}",
               "w",encoding="utf-8") as file:
         file.write(html_output)
         file.close()
