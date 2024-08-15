@@ -1,75 +1,84 @@
-"SSR Rollover Detection"
+"SSR Rollover Detection Module"
 
 from cxotime import CxoTime
 from components.data_requests import maude_data_request as maude_data
+from components.data_requests import ska_data_request as ska_data
+
 
 def ssr_rollover_detection(user_vars):
     "ssr rollover detection"
     ssr_rollover_data = get_ssr_rollover_data(user_vars)
-    return_string = add_ssr_rollovers(user_vars.ssr_prime[0],ssr_rollover_data)
-    return return_string
+    return add_ssr_rollovers(user_vars,ssr_rollover_data)
 
 
 def get_ssr_rollover_data(user_vars):
-    "Parse data for SSR rollovers"
+    """
+    Description: Find datetimes and data points when SSRs rolled over
+    Input: User variable dates
+    Output: <dict>
+    """
     print("SSR Rollover Detection...")
-    rollover_data_full, rollover_data = {}, {}
-    active_ssr = user_vars.ssr_prime[0]
-    data_a = maude_data(user_vars.ts,user_vars.tp,"COSARCEN")
-    data_b = maude_data(user_vars.ts,user_vars.tp,"COSBRCEN")
+    ssr_data = ska_data(user_vars.ts, user_vars.tp, f"COS{user_vars.ssr_prime[0]}RCEN")
+    ssr_times, ssr_values = ssr_data.times, ssr_data.vals
+    ssr_rollover_datetimes = {}
 
-    for time_a, value_a in zip(data_a["data-fmt-1"]["times"],data_a["data-fmt-1"]["values"]):
-        if active_ssr == "A":
-            if value_a == "0":
-                rollover_data_full.setdefault("A",[]).append({f"{time_a}": f"{value_a}"})
-        elif active_ssr == "B":
-            if value_a == "1":
-                rollover_data_full.setdefault("A",[]).append({f"{time_a}": f"{value_a}"})
+    # Shorten data list to only when SSR Prime was not recording
+    for index, (time, value) in enumerate(zip(ssr_times, ssr_values)):
 
-    for time_b, value_b in zip(data_b["data-fmt-1"]["times"],data_b["data-fmt-1"]["values"]):
-        if active_ssr == "A":
-            if value_b == "1":
-                rollover_data_full.setdefault("B",[]).append({f"{time_b}": f"{value_b}"})
-        elif active_ssr == "B":
-            if value_b == "0":
-                rollover_data_full.setdefault("B",[]).append({f"{time_b}": f"{value_b}"})
+        # Detect rollover from prime to backup
+        if (ssr_values[index - 1] == "TRUE"
+            and value == "FALS"
+            and CxoTime(time).strftime("%j") != user_vars.doy_start
+            and CxoTime(time).strftime("%j") != user_vars.doy_end
+        ):
+            ssr_rollover_datetimes.setdefault("Prime to Backup",[]).append(
+                CxoTime(time).datetime)
 
-    for ssr, data_lists in rollover_data_full.items():
-        for index, (data) in enumerate(data_lists):
-            for time, value in data.items():
-                if index in (0, (len(data_lists) - 1)):
-                    rollover_data.setdefault(ssr,[]).append({f"{time}":f"{value}"})
+        # Detect rollover from backup to prime (exclude last data point)
+        try:
+            if (value == "FALS"
+                and ssr_values[index + 1] == "TRUE"
+                and CxoTime(time).strftime("%j") != user_vars.doy_start
+                and CxoTime(time).strftime("%j") != user_vars.doy_end
+            ):
+                ssr_rollover_datetimes.setdefault("Backup to Prime",[]).append(
+                    CxoTime(time).datetime)
+        except IndexError: # drop the last data point, can't look at index+1 on last value
+            pass
 
-    del rollover_data_full
-    return rollover_data
+    return ssr_rollover_datetimes
 
 
-def add_ssr_rollovers(active_ssr, rollover_data):
+def add_ssr_rollovers(user_vars, rollover_data):
     "Add SSR rollover data to config_section string"
     return_string = ""
+    zip_data = zip(rollover_data["Prime to Backup"],
+                rollover_data["Backup to Prime"])
+
+    if user_vars.ssr_prime[0] == "A":
+        backup = "B"
+    else:
+        backup = "A"
+
     if rollover_data:
-        if active_ssr == "A":
-            for date in rollover_data["A"][0].keys():
-                date = CxoTime(date,format="maude")
-                return_string += (
-                    f"<li>SSR Rollover from SSR-A to SSR-B on {date.yday}z</li>")
-                print(f"   - SSR Rollover from SSR-A to SSR-B detected on {date.yday}.")
-            for date in rollover_data["A"][1].keys():
-                date = CxoTime(date,format="maude")
-                return_string += (
-                    f"<li>SSR Recovery from SSR-B to SSR-A on {date.yday}z</li>")
-                print(f"   - SSR Recovery from SSR-B to SSR-A detected on {date.yday}.")
-        else:
-            for date in rollover_data["B"][0].keys():
-                date = CxoTime(date,format="maude")
-                return_string += (
-                    f"<li>SSR Rollover from SSR-B to SSR-A on {date.yday}z</li>")
-                print(f"   - SSR Rollover from SSR-B to SSR-A detected on {date.yday}.")
-            for date in rollover_data["B"][1].keys():
-                date = CxoTime(date,format="maude")
-                return_string += (
-                    f"<li>SSR Recovery from SSR-A to SSR-B on {date.yday}z</li>")
-                print(f"   - SSR Recovery from SSR-A to SSR-B detected on {date.yday}.")
+
+        for prime_to_backup, backup_to_prime in zip_data:
+            rollover_date = prime_to_backup.strftime("%Y:%j:%H:%M:%S.%f")
+            recovery_date = backup_to_prime.strftime("%Y:%j:%H:%M:%S.%f")
+
+            # Assemble the final string
+            return_string += (
+                    f"<li>SSR Rollover from SSR-{user_vars.ssr_prime[0]} "
+                    f"to SSR-{backup} on {rollover_date}z</li>")
+            print(f"   - SSR Rollover from SSR-{user_vars.ssr_prime[0]} "
+                  f"to SSR-{backup} on {rollover_date}")
+
+            return_string += (
+                    f"<li>SSR Recovery from SSR-{backup} "
+                    f"to SSR-{user_vars.ssr_prime[0]} on {recovery_date}z</li>")
+            print(f"   - SSR Recovery from SSR-{backup} "
+                  f"to SSR-{user_vars.ssr_prime[0]} on {recovery_date}")
+
     else:
         print(" - No SSR rollover detected.")
 
